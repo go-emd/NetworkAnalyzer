@@ -1,0 +1,50 @@
+{
+	"Nfs": false,
+	"GUI_port": "30000",
+	"Nodes": [
+		{
+			"Hostname": "localhost",
+			"Workers": [
+				{
+					"Name": "Sniffer",
+					"Connections": [
+						{
+							"Type": "LocalEgress",
+							"Worker": "Parser",
+							"Alias": "Sniffer_and_Parser",
+							"Buffer": "0"
+						}
+					]
+				},
+				{
+					"Name": "Parser",
+					"Connections": [
+						{
+							"Type": "LocalIngress",
+							"Worker": "Sniffer",
+							"Alias": "Sniffer_and_Parser",
+							"Buffer": "0"
+						},
+						{
+							"Type": "LocalEgress",
+							"Worker": "Sink",
+							"Alias": "Sink_and_Parser",
+							"Buffer": "0"
+						}
+					]
+				},
+				{
+					"Name": "Sink",
+					"Connections": [
+						{
+							"Type": "LocalIngress",
+							"Worker": "Parser",
+							"Alias": "Sink_and_Parser",
+							"Buffer": "100"
+						}
+					]
+				}
+			]
+		}
+	]
+}

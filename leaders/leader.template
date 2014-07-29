@@ -1,0 +1,101 @@
+package main
+
+import (
+	"emd/connector"
+	"emd/core"
+	"emd/leader"
+	"emd/log"
+	"emd/worker"
+	"io/ioutil"
+	"os"
+
+	workers_ "../workers"
+)
+
+func main() {
+	log.Init(ioutil.Discard, os.Stdout, os.Stdout, os.Stderr)
+
+	// Worker Connections
+	{{range $w := .Node.Workers}}
+		MGMT_{{$w.Name}} := &connector.Local{
+			connector.Base{
+				core.Core{"MGMT_{{$w.Name}}"},
+				make(chan interface{}),
+			},
+		}
+
+		{{range $c := $w.Connections}}
+			{{if eq $c.Type "LocalEgress" }}
+				{{$c.Alias}} := &connector.Local{
+					connector.Base{
+						core.Core{"{{$c.Alias}}"},
+						make(chan interface{}, {{$c.Buffer}}),
+					},
+				}
+			{{else if eq $c.Type "ExternalIngress"}}
+				{{$c.Alias}} := &connector.ExternalUDPIngress{
+					connector.External{
+						connector.Base{
+							core.Core{"{{$c.Alias}}"},
+							make(chan interface{}, {{$c.Buffer}}),
+						},
+						"{{$c.Worker}}",
+						"{{getPort $c.Alias}}",
+					},
+					connector.Udp{
+						nil,
+					},
+					nil,
+				}
+			{{else if eq $c.Type "ExternalEgress"}}
+				{{$c.Alias}} := &connector.ExternalUDPEgress{
+					connector.External{
+						connector.Base{
+							core.Core{"{{$c.Alias}}"},
+							make(chan interface{}, {{$c.Buffer}}),
+						},
+						"{{$c.Worker}}",
+						"{{getPort $c.Alias}}",
+					},
+					connector.Udp{
+						nil,
+					},
+				}
+			{{end}}
+		{{end}}{{/* worker connections */}}
+	{{end}}{{/* node workers */}}
+
+	// Workers
+	workers := []worker.Worker{
+		{{range $w := .Node.Workers}}
+			workers_.{{$w.Name}}{
+				worker.Work{
+					core.Core{"{{$w.Name}}"},
+					map[string]connector.Connector{
+						"MGMT_{{$w.Name}}": MGMT_{{$w.Name}},
+
+						{{range $con := $w.Connections}}
+							"{{$con.Alias}}": {{$con.Alias}},
+						{{end}}
+					},
+				},
+			},
+		{{end}}{{/* connections */}}
+	}
+
+	// Node leader
+	nodeLeader := &leader.Lead{
+		core.Core{"NodeLeader"},
+		"{{.GuiPort}}",
+		"{{.ConfigPath}}",
+		workers,
+		map[string]connector.Connector{
+			{{range $wc := .Node.Workers}}
+				"{{$wc.Name}}": MGMT_{{$wc.Name}},
+			{{end}}
+		},
+	}
+
+	nodeLeader.Init()
+	nodeLeader.Run()
+}
