@@ -1,8 +1,8 @@
 package workers
 
 import (
-	"emd/log"
-	"emd/worker"
+	"github.com/go-emd/emd/log"
+	"github.com/go-emd/emd/worker"
 	"strings"
 )
 

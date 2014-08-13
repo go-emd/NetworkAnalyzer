@@ -1,11 +1,11 @@
 package main
 
 import (
-	"emd/connector"
-	"emd/core"
-	"emd/leader"
-	"emd/log"
-	"emd/worker"
+	"github.com/go-emd/emd/connector"
+	"github.com/go-emd/emd/core"
+	"github.com/go-emd/emd/leader"
+	"github.com/go-emd/emd/log"
+	"github.com/go-emd/emd/worker"
 	"io/ioutil"
 	"os"
 

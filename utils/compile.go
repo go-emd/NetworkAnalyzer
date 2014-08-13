@@ -3,7 +3,7 @@ package main
 import (
 	config "./config"
 
-	"emd/log"
+	"github.com/go-emd/emd/log"
 	"io/ioutil"
 	"os"
 	"text/template"

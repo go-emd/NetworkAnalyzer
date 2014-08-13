@@ -1,7 +1,7 @@
 package config
 
 import (
-	"emd/log"
+	"github.com/go-emd/emd/log"
 	"encoding/json"
 	"io/ioutil"
 )
