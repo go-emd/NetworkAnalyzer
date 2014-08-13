@@ -3,15 +3,28 @@ package workers
 import (
 	"github.com/go-emd/emd/log"
 	"github.com/go-emd/emd/worker"
+
+	"code.google.com/p/gopacket"
+	"code.google.com/p/gopacket/pcap"
+
+	"io"
 )
 
 type Sniffer struct {
 	worker.Work
 }
 
+var packetSource gopacket.PacketSource
+
 func (w Sniffer) Init() {
 	for _, p := range w.Ports() {
 		p.Open()
+	}
+
+	if handle, err := pcap.OpenLive("wlan0", 1600, true, 0); err != nil {
+		log.ERROR.Println(err)
+	} else {
+		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	}
 
 	log.INFO.Println("Worker " + w.Name_ + " inited.")
@@ -29,7 +42,7 @@ func (w Sniffer) Run() {
 		}
 	}()
 
-	w.Ports()["Sniffer_and_Parser"].Channel() <- "Parser this"
+	//w.Ports()["Sniffer_and_Parser"].Channel() <- "Parser this"
 
 	for {
 		select {
@@ -42,8 +55,13 @@ func (w Sniffer) Run() {
 			} else if cmd == "METRICS" {
 				w.Ports()["MGMT_Sniffer"].Channel() <- Metric{"health": "TODO metrics."}
 			}
-		case data := <-w.Ports()["Sniffer_and_Parser"].Channel():
-			log.INFO.Println(data)
+		default:
+			packet, err := packetSource.NextPacket()
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				log.INFO.Println(packet)
+			}
 		}
 	}
 }
