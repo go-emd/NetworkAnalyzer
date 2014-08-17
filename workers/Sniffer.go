@@ -35,6 +35,7 @@ func (w Sniffer) Run() {
 	defer func() {
 		if r := recover(); r != nil {
 			log.ERROR.Println("Uncaught error occurred, exiting.")
+			log.ERROR.Println(r)
 
 			w.Stop()
 		}
@@ -56,11 +57,26 @@ func (w Sniffer) Run() {
 			if err != nil {
 				log.ERROR.Println(err)
 			} else {
-				w.Ports()["Sniffer_and_Sink"].Channel() <- Metadata{
-					packet.LinkLayer().LinkFlow(),
-					packet.TransportLayer().TransportFlow(),
-					packet.NetworkLayer().NetworkFlow(),
-				}
+				metadata := Metadata{}
+
+				metadata.Timestamp = packet.Metadata().CaptureInfo.Timestamp
+
+				if tmp := packet.LinkLayer(); tmp != nil {
+					metadata.SrcMac = tmp.LinkFlow().Src()
+					metadata.DstMac = tmp.LinkFlow().Dst()
+				} else { continue }
+
+				if tmp := packet.TransportLayer(); tmp != nil {
+					metadata.SrcIp = tmp.TransportFlow().Src()
+					metadata.DstIp = tmp.TransportFlow().Dst()
+				} else { continue }
+
+				if tmp := packet.NetworkLayer(); tmp != nil {
+					metadata.SrcPort = tmp.NetworkFlow().Src()
+					metadata.DstPort = tmp.NetworkFlow().Dst()
+				} else { continue }
+
+				w.Ports()["Sniffer_and_Sink"].Channel() <- metadata
 			}
 		}
 	}

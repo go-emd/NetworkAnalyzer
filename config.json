@@ -23,7 +23,7 @@
 							"Type": "LocalIngress",
 							"Worker": "Parser",
 							"Alias": "Sniffer_and_Sink",
-							"Buffer": "100"
+							"Buffer": "0"
 						}
 					]
 				}

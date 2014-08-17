@@ -2,12 +2,15 @@ package workers
 
 import (
 	"code.google.com/p/gopacket"
+
+	"time"
 )
 
 type Metadata struct {
-	LinkFLow gopacket.Flow
-	TransportFlow gopacket.Flow
-	NetworkFlow gopacket.Flow
+	Timestamp time.Time
+	SrcMac, DstMac gopacket.Endpoint
+	SrcIp, DstIp gopacket.Endpoint
+	SrcPort, DstPort gopacket.Endpoint
 }
 
 type Metric map[string]interface{}
