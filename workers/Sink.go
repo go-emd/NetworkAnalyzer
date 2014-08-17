@@ -40,15 +40,15 @@ func (w Sink) Run() {
 			} else if cmd == "METRICS" {
 				w.Ports()["MGMT_Sink"].Channel() <- Metric{"name": "value"}
 			}
-		case data := <-w.Ports()["Sink_and_Parser"].Channel():
-			log.INFO.Println(data)
+		case data := <-w.Ports()["Sniffer_and_Sink"].Channel():
+			log.INFO.Println(data.(Metadata))
 		}
 	}
 }
 
 func (w Sink) Stop() {
 	w.Ports()["MGMT_Sink"].Close()
-	w.Ports()["Sink_and_Parser"].Close()
+	w.Ports()["Sniffer_and_Sink"].Close()
 
 	log.INFO.Println("Worker " + w.Name_ + " stopped.")
 }

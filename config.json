@@ -11,24 +11,7 @@
 						{
 							"Type": "LocalEgress",
 							"Worker": "Parser",
-							"Alias": "Sniffer_and_Parser",
-							"Buffer": "0"
-						}
-					]
-				},
-				{
-					"Name": "Parser",
-					"Connections": [
-						{
-							"Type": "LocalIngress",
-							"Worker": "Sniffer",
-							"Alias": "Sniffer_and_Parser",
-							"Buffer": "0"
-						},
-						{
-							"Type": "LocalEgress",
-							"Worker": "Sink",
-							"Alias": "Sink_and_Parser",
+							"Alias": "Sniffer_and_Sink",
 							"Buffer": "0"
 						}
 					]
@@ -39,7 +22,7 @@
 						{
 							"Type": "LocalIngress",
 							"Worker": "Parser",
-							"Alias": "Sink_and_Parser",
+							"Alias": "Sniffer_and_Sink",
 							"Buffer": "100"
 						}
 					]

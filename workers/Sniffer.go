@@ -6,15 +6,13 @@ import (
 
 	"code.google.com/p/gopacket"
 	"code.google.com/p/gopacket/pcap"
-
-	"io"
 )
 
 type Sniffer struct {
 	worker.Work
 }
 
-var packetSource gopacket.PacketSource
+var packetSource *gopacket.PacketSource
 
 func (w Sniffer) Init() {
 	for _, p := range w.Ports() {
@@ -24,7 +22,7 @@ func (w Sniffer) Init() {
 	if handle, err := pcap.OpenLive("wlan0", 1600, true, 0); err != nil {
 		log.ERROR.Println(err)
 	} else {
-		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+		packetSource = gopacket.NewPacketSource(handle, handle.LinkType())
 	}
 
 	log.INFO.Println("Worker " + w.Name_ + " inited.")
@@ -42,8 +40,6 @@ func (w Sniffer) Run() {
 		}
 	}()
 
-	//w.Ports()["Sniffer_and_Parser"].Channel() <- "Parser this"
-
 	for {
 		select {
 		case cmd := <-w.Ports()["MGMT_Sniffer"].Channel():
@@ -57,10 +53,14 @@ func (w Sniffer) Run() {
 			}
 		default:
 			packet, err := packetSource.NextPacket()
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				log.INFO.Println(packet)
+			if err != nil {
+				log.ERROR.Println(err)
+			} else {
+				w.Ports()["Sniffer_and_Sink"].Channel() <- Metadata{
+					packet.LinkLayer().LinkFlow(),
+					packet.TransportLayer().TransportFlow(),
+					packet.NetworkLayer().NetworkFlow(),
+				}
 			}
 		}
 	}
@@ -68,7 +68,7 @@ func (w Sniffer) Run() {
 
 func (w Sniffer) Stop() {
 	w.Ports()["MGMT_Sniffer"].Close()
-	w.Ports()["Sniffer_and_Parser"].Close()
+	w.Ports()["Sniffer_and_Sink"].Close()
 
 	log.INFO.Println("Worker " + w.Name_ + " stopped.")
 }
