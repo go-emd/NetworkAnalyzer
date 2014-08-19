@@ -41,7 +41,7 @@ func (w Sink) Run() {
 				w.Ports()["MGMT_Sink"].Channel() <- Metric{"name": "value"}
 			}
 		case data := <-w.Ports()["Sniffer_and_Sink"].Channel():
-			log.INFO.Println(data.(Metadata))
+			log.INFO.Println(data.(Netflow))
 		}
 	}
 }

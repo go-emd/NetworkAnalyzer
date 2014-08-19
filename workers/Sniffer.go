@@ -57,26 +57,36 @@ func (w Sniffer) Run() {
 			if err != nil {
 				log.ERROR.Println(err)
 			} else {
-				metadata := Metadata{}
+				if err := packet.ErrorLayer(); err != nil {
+					log.ERROR.Println(err)
+				} else {
+					netflow := Netflow{}
+					netflow.Start = packet.Metadata().CaptureInfo.Timestamp
+					
+					
+					/*
+						ETHERNET HDR: 14bytes
+						IP HDR: v4: 20bytes, v6: 36bytes
+							- version: 1st byte
+					*/
+					raw := packet.Data()
+					netflow.Ipversion = raw[15] >> 2
+				}
 
-				metadata.Timestamp = packet.Metadata().CaptureInfo.Timestamp
 
-				if tmp := packet.LinkLayer(); tmp != nil {
-					metadata.SrcMac = tmp.LinkFlow().Src()
-					metadata.DstMac = tmp.LinkFlow().Dst()
-				} else { continue }
 
-				if tmp := packet.TransportLayer(); tmp != nil {
-					metadata.SrcIp = tmp.TransportFlow().Src()
-					metadata.DstIp = tmp.TransportFlow().Dst()
+
+				/*if tmp := packet.TransportLayer(); tmp != nil {
+					netflow.SrcIp = tmp.TransportFlow().Src()
+					netflow.DstIp = tmp.TransportFlow().Dst()
 				} else { continue }
 
 				if tmp := packet.NetworkLayer(); tmp != nil {
-					metadata.SrcPort = tmp.NetworkFlow().Src()
-					metadata.DstPort = tmp.NetworkFlow().Dst()
+					netflow.SrcPort = tmp.NetworkFlow().Src()
+					netflow.DstPort = tmp.NetworkFlow().Dst()
 				} else { continue }
 
-				w.Ports()["Sniffer_and_Sink"].Channel() <- metadata
+				w.Ports()["Sniffer_and_Sink"].Channel() <- netflow*/
 			}
 		}
 	}
