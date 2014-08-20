@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"net/http"
 	"text/template"
 )
 
@@ -123,7 +124,7 @@ func compile() {
 	var cfg config.Config
 	currentExtPort = 40000
 	externalPorts = make(map[string]int)
-	config.Process(os.Args[1]+"/config.json", &cfg)
+	config.Process(path+"/config.json", &cfg)
 
 	// Loop through all nodes in config and create
 	//   leader files for each, then build them 
@@ -173,7 +174,7 @@ func clean() {
 	}
 
 	var cfg config.Config
-	config.Process(os.Args[1]+"/config.json", &cfg)
+	config.Process(path+"/config.json", &cfg)
 
 	for _, n := range cfg.Nodes {
 		log.INFO.Println("Removing "+path+"/leaders/"+n.Hostname+".go")
@@ -230,11 +231,11 @@ func distribute() {
 	}
 
 	var cfg config.Config
-	config.Process(os.Args[1]+"/config.json", &cfg)
+	config.Process(path+"/config.json", &cfg)
 
 	for _, n := range cfg.Nodes{
 		log.INFO.Println("Distributing to "+n.Hostname)
-		_, err := exec.Command("rsync", "-a", "-z", path, user.Username+"@"+n.Hostname+":/tmp").Output()
+		_, err := exec.Command("rsync", "-a", "-z", path, user.Username+"@"+n.Hostname+":"+os.TempDir()).Output()
 		if err != nil {
 			log.ERROR.Println(err)
 			os.Exit(1)
@@ -288,11 +289,11 @@ func start() {
 	}
 
 	var cfg config.Config
-	config.Process(os.Args[1]+"/config.json", &cfg)
+	config.Process(path+"/config.json", &cfg)
 
 	for _, n := range cfg.Nodes{
 		log.INFO.Println("Starting leader on "+n.Hostname)
-		_, err := exec.Command("ssh", "-n", "-f", user.Username+"@"+n.Hostname, "\"sh -c 'nohup /tmp/"+projectName+"/leaders/bin/"+n.Hostname+" > /dev/null 2>&1 &'").Output()
+		_, err := exec.Command("ssh", "-n", "-f", user.Username+"@"+n.Hostname, "\"sh -c 'nohup "+os.TempDir()+"/"+projectName+"/leaders/bin/"+n.Hostname+" > /dev/null 2>&1 &'").Output()
 		if err != nil {
 			log.ERROR.Println(err)
 			os.Exit(1)
@@ -308,7 +309,52 @@ func start() {
  *
  */
 func stop() {
+	path := ""
+
+	if len(os.Args) == 0 || len(os.Args) > 2 {
+		log.ERROR.Println("Usage: go-emd stop --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd stop --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--help" || os.Args[0] == "-h" || os.Args[0] == "help" {
+		log.INFO.Println("Usage: go-emd stop --path <path to dir containing config.json>")
+		log.INFO.Println("Usage: go-emd stop --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--path" || os.Args[0] == "-p" && len(os.Args) == 2 {
+		path = os.Args[1]
+		
+		// Need to make sure trailing slash is removed.
+		if path[len(path)-1] == '/' {
+			path = path[:len(path)-1]
+		}
+	} else {
+		log.ERROR.Println("Usage: go-emd stop --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd stop --help")
+		os.Exit(1)
+	}
+	
+	var cfg config.Config
+	config.Process(path+"/config.json", &cfg)
+	
 	log.INFO.Println("Stopping distribution")
+	
+	for _, n := range cfg.Nodes {
+		log.INFO.Println("Stopping node "+n.Hostname)
+
+		// Stop all the workers
+		_, err := http.Get("http://"+n.Hostname+":"+cfg.GUI_port+"/stop")
+		if err != nil {
+			log.ERROR.Println(err)
+			os.Exit(1)
+		}
+
+		// Stop the leader
+		_, err = http.Get("http://"+n.Hostname+":"+cfg.GUI_port+"/stop")
+		if err != nil {
+			log.ERROR.Println(err)
+			os.Exit(1)
+		}
+	}
+	
 	log.INFO.Println("Stop successful")
 }
 
@@ -318,8 +364,43 @@ func stop() {
  *
  */
 func status() {
-	log.INFO.Println("Contacting x leader")
+	path := ""
 
+	if len(os.Args) == 0 || len(os.Args) > 2 {
+		log.ERROR.Println("Usage: go-emd status --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd status --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--help" || os.Args[0] == "-h" || os.Args[0] == "help" {
+		log.INFO.Println("Usage: go-emd status --path <path to dir containing config.json>")
+		log.INFO.Println("Usage: go-emd status --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--path" || os.Args[0] == "-p" && len(os.Args) == 2 {
+		path = os.Args[1]
+		
+		// Need to make sure trailing slash is removed.
+		if path[len(path)-1] == '/' {
+			path = path[:len(path)-1]
+		}
+	} else {
+		log.ERROR.Println("Usage: go-emd status --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd status --help")
+		os.Exit(1)
+	}
+	
+	var cfg config.Config
+	config.Process(path+"/config.json", &cfg)
+	
+	for _, n := range cfg.Nodes {
+		log.INFO.Println("Obtaining status of node "+n.Hostname)
+
+		resp, err := http.Get("http://"+n.Hostname+":"+cfg.GUI_port+"/status")
+		if err != nil {
+			log.ERROR.Println(err)
+			os.Exit(1)
+		}
+		
+		log.INFO.Println(resp)
+	}
 
 	log.INFO.Println("Status successful")
 }
@@ -330,8 +411,43 @@ func status() {
  *
  */
 func metrics() {
-	log.INFO.Println("Contacting x leader")
+	path := ""
 
+	if len(os.Args) == 0 || len(os.Args) > 2 {
+		log.ERROR.Println("Usage: go-emd metrics --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd metrics --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--help" || os.Args[0] == "-h" || os.Args[0] == "help" {
+		log.INFO.Println("Usage: go-emd metrics --path <path to dir containing config.json>")
+		log.INFO.Println("Usage: go-emd metrics --help")
+		os.Exit(1)
+	} else if os.Args[0] == "--path" || os.Args[0] == "-p" && len(os.Args) == 2 {
+		path = os.Args[1]
+		
+		// Need to make sure trailing slash is removed.
+		if path[len(path)-1] == '/' {
+			path = path[:len(path)-1]
+		}
+	} else {
+		log.ERROR.Println("Usage: go-emd metrics --path <path to dir containing config.json>")
+		log.ERROR.Println("Usage: go-emd metrics --help")
+		os.Exit(1)
+	}
+	
+	var cfg config.Config
+	config.Process(path+"/config.json", &cfg)
+	
+	for _, n := range cfg.Nodes {
+		log.INFO.Println("Obtaining metrics of node "+n.Hostname)
+
+		resp, err := http.Get("http://"+n.Hostname+":"+cfg.GUI_port+"/metrics")
+		if err != nil {
+			log.ERROR.Println(err)
+			os.Exit(1)
+		}
+		
+		log.INFO.Println(resp)
+	}
 
 	log.INFO.Println("Metrics successful")
 }
@@ -344,6 +460,14 @@ func metrics() {
  */
 func newProject() {
 	log.INFO.Println("Creating new distribution")
+
+	// Copy boilerplate/* stuff into the path/name given.
+	_, err := exec.Command("git", "clone", "https://github.com/go-emd/boilerplate.git").Output()
+	if err != nil {
+		log.ERROR.Println(err)
+		os.Exit(1)
+	}
+
 	log.INFO.Println("New successful")
 }
 
