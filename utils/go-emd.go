@@ -293,7 +293,7 @@ func start() {
 
 	for _, n := range cfg.Nodes{
 		log.INFO.Println("Starting leader on "+n.Hostname)
-		_, err := exec.Command("ssh", "-n", "-f", user.Username+"@"+n.Hostname, "\"sh -c 'nohup "+os.TempDir()+"/"+projectName+"/leaders/bin/"+n.Hostname+" > /dev/null 2>&1 &'").Output()
+		_, err := exec.Command("ssh", "-n", "-f", user.Username+"@"+n.Hostname, "\"sh -c 'nohup "+os.TempDir()+"/"+projectName+"/leaders/bin/"+n.Hostname+" > /dev/null 2>&1 &'\"").Output()
 		if err != nil {
 			log.ERROR.Println(err)
 			os.Exit(1)
