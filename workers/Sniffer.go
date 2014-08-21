@@ -6,6 +6,8 @@ import (
 
 	"code.google.com/p/gopacket"
 	"code.google.com/p/gopacket/pcap"
+	
+	"encoding/binary"
 )
 
 type Sniffer struct {
@@ -62,31 +64,19 @@ func (w Sniffer) Run() {
 				} else {
 					netflow := Netflow{}
 					netflow.Start = packet.Metadata().CaptureInfo.Timestamp
-					
-					
-					/*
-						ETHERNET HDR: 14bytes
-						IP HDR: v4: 20bytes, v6: 36bytes
-							- version: 1st byte
-					*/
+
 					raw := packet.Data()
-					netflow.Ipversion = raw[15] >> 2
+
+					netflow.IpVersion = raw[14] >> 4
+					netflow.Protocol = raw[14+9]
+					netflow.SrcIp = raw[14+12:14+12+4]
+					netflow.DstIp = raw[14+16:14+16+4]
+					netflow.SrcPort = binary.BigEndian.Uint16(raw[14+20:14+20+2])
+					netflow.DstPort = binary.BigEndian.Uint16(raw[14+20+2:14+20+4])
+					netflow.Bytes = len(raw)
+
+					w.Ports()["Sniffer_and_Sink"].Channel() <- netflow
 				}
-
-
-
-
-				/*if tmp := packet.TransportLayer(); tmp != nil {
-					netflow.SrcIp = tmp.TransportFlow().Src()
-					netflow.DstIp = tmp.TransportFlow().Dst()
-				} else { continue }
-
-				if tmp := packet.NetworkLayer(); tmp != nil {
-					netflow.SrcPort = tmp.NetworkFlow().Src()
-					netflow.DstPort = tmp.NetworkFlow().Dst()
-				} else { continue }
-
-				w.Ports()["Sniffer_and_Sink"].Channel() <- netflow*/
 			}
 		}
 	}
