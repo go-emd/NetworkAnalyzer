@@ -53,12 +53,6 @@ func (w TcpFlow) Run() {
 					"partialFlowSize": len(tcpFlows.PartialFlows),
 					"finalFlowSize": len(tcpFlows.FinalFlows),
 				}
-
-				f, p := tcpFlows.Flush(true)
-				log.INFO.Println(f)
-				for _, v := range p {
-					log.INFO.Println(v.Netflow_)
-				}
 			}
 		case netflow := <-w.Ports()["Sniffer_and_TcpFlow"].Channel():
 			srcPort := make([]byte, 2)
