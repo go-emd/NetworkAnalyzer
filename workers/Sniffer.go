@@ -55,6 +55,8 @@ func (w Sniffer) Run() {
 				w.Ports()["MGMT_Sniffer"].Channel() <- Metric{"health": "TODO metrics."}
 			}
 		default:
+			// Enforcing sampled for full intake will happen here when configuration 
+			// mechanism of each worker is complete.  Defaulting to full intake.
 			packet, err := packetSource.NextPacket()
 			if err != nil {
 				log.ERROR.Println(err)
@@ -75,7 +77,17 @@ func (w Sniffer) Run() {
 					netflow.DstPort = binary.BigEndian.Uint16(raw[14+20+2:14+20+4])
 					netflow.Bytes = len(raw)
 
-					w.Ports()["Sniffer_and_Sink"].Channel() <- netflow
+					switch netflow.Protocol {
+					case 1: // ICMP v4
+					case 58: // ICMP v6
+						w.Ports()["Sniffer_and_IcmpFlow"].Channel() <- netflow
+					case 6: // TCP
+						w.Ports()["Sniffer_and_TcpFlow"].Channel() <- netflow
+					case 17: // UDP
+						w.Ports()["Sniffer_and_UdpFlow"].Channel() <- netflow
+					default: // Other
+						w.Ports()["Sniffer_and_OtherFlow"].Channel() <- netflow
+					}
 				}
 			}
 		}
@@ -84,7 +96,11 @@ func (w Sniffer) Run() {
 
 func (w Sniffer) Stop() {
 	w.Ports()["MGMT_Sniffer"].Close()
-	w.Ports()["Sniffer_and_Sink"].Close()
+
+	w.Ports()["Sniffer_and_TcpFlow"].Close()
+	w.Ports()["Sniffer_and_UdpFlow"].Close()
+	w.Ports()["Sniffer_and_IcmpFlow"].Close()
+	w.Ports()["Sniffer_and_OtherFlow"].Close()
 
 	log.INFO.Println("Worker " + w.Name_ + " stopped.")
 }

@@ -40,7 +40,7 @@ func (w Sink) Run() {
 			} else if cmd == "METRICS" {
 				w.Ports()["MGMT_Sink"].Channel() <- Metric{"name": "value"}
 			}
-		case data := <-w.Ports()["Sniffer_and_Sink"].Channel():
+		case data := <-w.Ports()["SplitDistribute_and_Sink"].Channel():
 			log.INFO.Println(data.(Netflow))
 		}
 	}
@@ -48,7 +48,7 @@ func (w Sink) Run() {
 
 func (w Sink) Stop() {
 	w.Ports()["MGMT_Sink"].Close()
-	w.Ports()["Sniffer_and_Sink"].Close()
+	w.Ports()["SplitDistribute_and_Sink"].Close()
 
 	log.INFO.Println("Worker " + w.Name_ + " stopped.")
 }

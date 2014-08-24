@@ -10,19 +10,70 @@
 					"Connections": [
 						{
 							"Type": "LocalEgress",
-							"Worker": "Parser",
-							"Alias": "Sniffer_and_Sink",
+							"Worker": "TcpFlow",
+							"Alias": "Sniffer_and_TcpFlow",
+							"Buffer": "0"
+						},
+						{
+							"Type": "LocalEgress",
+							"Worker": "UdpFlow",
+							"Alias": "Sniffer_and_UdpFlow",
+							"Buffer": "0"
+						},
+						{
+							"Type": "LocalEgress",
+							"Worker": "IcmpFlow",
+							"Alias": "Sniffer_and_IcmpFlow",
+							"Buffer": "0"
+						},
+						{
+							"Type": "LocalEgress",
+							"Worker": "OtherFlow",
+							"Alias": "Sniffer_and_OtherFlow",
 							"Buffer": "0"
 						}
 					]
 				},
 				{
-					"Name": "Sink",
+					"Name": "TcpFlow",
 					"Connections": [
 						{
 							"Type": "LocalIngress",
-							"Worker": "Parser",
-							"Alias": "Sniffer_and_Sink",
+							"Worker": "Sniffer",
+							"Alias": "Sniffer_and_TcpFlow",
+							"Buffer": "0"
+						}
+					]
+				},
+				{
+					"Name": "UdpFlow",
+					"Connections": [
+						{
+							"Type": "LocalIngress",
+							"Worker": "Sniffer",
+							"Alias": "Sniffer_and_UdpFlow",
+							"Buffer": "0"
+						}
+					]
+				},
+				{
+					"Name": "IcmpFlow",
+					"Connections": [
+						{
+							"Type": "LocalIngress",
+							"Worker": "Sniffer",
+							"Alias": "Sniffer_and_IcmpFlow",
+							"Buffer": "0"
+						}
+					]
+				},
+				{
+					"Name": "OtherFlow",
+					"Connections": [
+						{
+							"Type": "LocalIngress",
+							"Worker": "Sniffer",
+							"Alias": "Sniffer_and_OtherFlow",
 							"Buffer": "0"
 						}
 					]

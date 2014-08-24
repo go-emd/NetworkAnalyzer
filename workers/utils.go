@@ -14,6 +14,7 @@ type Netflow struct {
 	SrcPort uint16
 	DstPort uint16
 	Bytes int
+	Optional []byte // Protocol Specific
 }
 
 type Metric map[string]interface{}
