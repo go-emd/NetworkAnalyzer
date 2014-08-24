@@ -4,11 +4,11 @@ import (
 	"github.com/go-emd/emd/log"
 	"github.com/go-emd/emd/worker"
 
-	//flows "./flows"
+	"encoding/binary"
 )
 
 var (
-	//tcpFlows flows.Flows
+	tcpFlows *Flows
 )
 
 type TcpFlow struct {
@@ -20,8 +20,9 @@ func (w TcpFlow) Init() {
 		p.Open()
 	}
 
-	//endOfFlowSeq := []byte{} // TODO
-	//tcpFlows = flows.New(endOfFlowSeq)
+	// FIN
+	endOfFlowSeq := []byte{0x1}
+	tcpFlows = NewFlows(endOfFlowSeq)
 
 	log.INFO.Println("Worker " + w.Name_ + " inited.")
 }
@@ -48,11 +49,35 @@ func (w TcpFlow) Run() {
 			} else if cmd == "STATUS" {
 				w.Ports()["MGMT_TcpFlow"].Channel() <- "Healthy"
 			} else if cmd == "METRICS" {
-				w.Ports()["MGMT_TcpFlow"].Channel() <- Metric{"metrics name": "TODO metrics."}
+				w.Ports()["MGMT_TcpFlow"].Channel() <- Metric{
+					"partialFlowSize": len(tcpFlows.PartialFlows),
+					"finalFlowSize": len(tcpFlows.FinalFlows),
+				}
+
+				f, p := tcpFlows.Flush(true)
+				log.INFO.Println(f)
+				for _, v := range p {
+					log.INFO.Println(v.Netflow_)
+				}
 			}
 		case netflow := <-w.Ports()["Sniffer_and_TcpFlow"].Channel():
-			//tcpFlows.Update([]byte{}, netflow.(Netflow))
-			log.INFO.Println(netflow.(Netflow))
+			srcPort := make([]byte, 2)
+			dstPort := make([]byte, 2)
+
+			binary.BigEndian.PutUint16(srcPort, netflow.(Netflow).SrcPort)
+			binary.BigEndian.PutUint16(dstPort, netflow.(Netflow).DstPort)
+
+			tcpFlows.Update(
+				appendByteArray(
+					netflow.(Netflow).Optional, // Required to be the first byte
+					[]byte(netflow.(Netflow).SrcIp),
+					[]byte(netflow.(Netflow).DstIp),
+					srcPort,
+					dstPort,
+					[]byte{netflow.(Netflow).IpVersion},
+				),
+				netflow.(Netflow),
+			)
 		}
 	}
 }

@@ -5,38 +5,35 @@
 	This way this package can be used for any flow/
 	protocol possible.
 */
-package flows
+package workers
 
 import (
-	"hash"
 	"hash/adler32"
 	"time"
 )
 
-// Hashing utility
-var (
-	hasher hash.Hash32
-)
+type FlowContainer struct {
+	Netflow_ Netflow
+	EndHash uint32
+}
 
 // Flows struct contains the PartialFlows being 
 // built in real-time and the FinalFlows that 
 // have officially ended without being forced to 
 // flush everything.
 type Flows struct {
-	PartialFlows map[uint32]*Netflow
-	FinalFlows []*Netflow
-	EndSignature uint32
+	PartialFlows map[uint32]*FlowContainer
+	FinalFlows []Netflow
+	EndSignature []byte
 }
 
 // Creates a new Flows instance allowing for 
 // accumulation flow data.
-func (f *Flows) New(es []byte) *Flows {
-	hasher = adler32.New()
-
+func NewFlows(es []byte) *Flows {
 	return &Flows{
-		PartialFlows: make(map[uint32]*Netflow),
-		FinalFlows: make([]*Netflow)
-		EndSignature: hasher.Checksum(es),
+		PartialFlows: make(map[uint32]*FlowContainer),
+		FinalFlows: make([]Netflow, 0),
+		EndSignature: es,
 	}
 }
 
@@ -45,17 +42,25 @@ func (f *Flows) New(es []byte) *Flows {
 // if this is an end of flow signature, if so then 
 // it will transfer this flow entry to the FinalFlows 
 // slice and add the current time to the duration field.
-func (f *Flows) Update(data []byte, netflow *Netflow) {
-	hash := hasher.Checksum(data)
-	
-	if f.PartialFlows[hash] == nil { // Start of flow
-		f.PartialFlows[hash] = netflow
-	} else { // Flow already started
-		f.PartialFlows[hash].Bytes += netflow.Bytes
+// 
+// data []byte{ end of flow control bits, <other data>, ...
+func (f *Flows) Update(data []byte, netflow Netflow) {
+	hash := adler32.Checksum(data[1:])
 
-		if hash == f.EndSignature { // End of flow
-			f.PartialFlows[hash].Duration = time.Now()
-			f.FinalFlows = append(f.FinalFlows, f.PartialFlows[hash])
+	if f.PartialFlows[hash] == nil { // Start of flow
+		f.PartialFlows[hash] = &FlowContainer {
+			Netflow_: netflow,
+			EndHash: adler32.Checksum(append(
+				data[1:],
+				f.EndSignature...,
+			)),
+		}
+	} else { // Flow already started
+		f.PartialFlows[hash].Netflow_.Bytes += netflow.Bytes
+
+		if hash == f.PartialFlows[hash].EndHash { // End of flow
+			f.PartialFlows[hash].Netflow_.Duration = time.Now()
+			f.FinalFlows = append(f.FinalFlows, f.PartialFlows[hash].Netflow_)
 			f.PartialFlows[hash] = nil
 		}
 	}
@@ -66,13 +71,13 @@ func (f *Flows) Update(data []byte, netflow *Netflow) {
 // then both FinalFlows and PartialFlows will be returned then 
 // cleared.  If both is false then only the FinalFlows will be 
 // returned then cleared.
-func (f *Flows) Flush(both bool) []*Netflow, map[uint32]*Netflow {
-	def func() { // Used to clear the data structures after returning.
+func (f *Flows) Flush(both bool) ([]Netflow, map[uint32]*FlowContainer) {
+	defer func() { // Used to clear the data structures after returning.
 		f.FinalFlows = nil
 		if both {
-			f.PartialFlows = make(map[uint32]*Netflow)
+			f.PartialFlows = make(map[uint32]*FlowContainer)
 		}
-	}
+	}()
 
 	if both {
 		return f.FinalFlows, f.PartialFlows

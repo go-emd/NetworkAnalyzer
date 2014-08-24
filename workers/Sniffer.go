@@ -14,7 +14,12 @@ type Sniffer struct {
 	worker.Work
 }
 
-var packetSource *gopacket.PacketSource
+var (
+	packetSource *gopacket.PacketSource
+	sniffedPackets uint64
+	errPackets uint32
+	health string
+)
 
 func (w Sniffer) Init() {
 	for _, p := range w.Ports() {
@@ -23,9 +28,14 @@ func (w Sniffer) Init() {
 
 	if handle, err := pcap.OpenLive("wlan0", 1600, true, 0); err != nil {
 		log.ERROR.Println(err)
+		health = "Unhealthy"
 	} else {
 		packetSource = gopacket.NewPacketSource(handle, handle.LinkType())
+		health = "Healthy"
 	}
+
+	sniffedPackets = 0
+	errPackets = 0
 
 	log.INFO.Println("Worker " + w.Name_ + " inited.")
 }
@@ -50,19 +60,24 @@ func (w Sniffer) Run() {
 				w.Stop()
 				return
 			} else if cmd == "STATUS" {
-				w.Ports()["MGMT_Sniffer"].Channel() <- "Healthy"
+				w.Ports()["MGMT_Sniffer"].Channel() <- health
 			} else if cmd == "METRICS" {
-				w.Ports()["MGMT_Sniffer"].Channel() <- Metric{"health": "TODO metrics."}
+				w.Ports()["MGMT_Sniffer"].Channel() <- Metric{
+					"sniffedPackets": sniffedPackets,
+					"errPackets": errPackets,
+				}
 			}
 		default:
-			// Enforcing sampled for full intake will happen here when configuration 
+			// Enforcing sampled or full intake will happen here when configuration 
 			// mechanism of each worker is complete.  Defaulting to full intake.
 			packet, err := packetSource.NextPacket()
 			if err != nil {
 				log.ERROR.Println(err)
+				errPackets += 1
 			} else {
 				if err := packet.ErrorLayer(); err != nil {
 					log.ERROR.Println(err)
+					errPackets += 1
 				} else {
 					netflow := Netflow{}
 					netflow.Start = packet.Metadata().CaptureInfo.Timestamp
@@ -80,14 +95,20 @@ func (w Sniffer) Run() {
 					switch netflow.Protocol {
 					case 1: // ICMP v4
 					case 58: // ICMP v6
+						netflow.Optional = []byte{
+							raw[14+20], // Type
+							raw[14+20+1], // Code (subtype)
+						}
 						w.Ports()["Sniffer_and_IcmpFlow"].Channel() <- netflow
 					case 6: // TCP
+						netflow.Optional = []byte{raw[14+20+14]} // TCP control bits
 						w.Ports()["Sniffer_and_TcpFlow"].Channel() <- netflow
 					case 17: // UDP
 						w.Ports()["Sniffer_and_UdpFlow"].Channel() <- netflow
 					default: // Other
 						w.Ports()["Sniffer_and_OtherFlow"].Channel() <- netflow
 					}
+					sniffedPackets += 1
 				}
 			}
 		}

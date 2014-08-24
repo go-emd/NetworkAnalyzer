@@ -41,7 +41,7 @@ func (w IcmpFlow) Run() {
 
 	for {
 		select {
-		case cmd := <-w.Ports()["MGMT_TcpFlow"].Channel():
+		case cmd := <-w.Ports()["MGMT_IcmpFlow"].Channel():
 			if cmd == "STOP" {
 				w.Stop()
 				return
