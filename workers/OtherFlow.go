@@ -4,11 +4,11 @@ import (
 	"github.com/go-emd/emd/log"
 	"github.com/go-emd/emd/worker"
 
-	//flows "./flows"
+	"encoding/binary"
 )
 
 var (
-	//otherFlows flows.Flows
+	otherFlows *Flows
 )
 
 type OtherFlow struct {
@@ -20,8 +20,8 @@ func (w OtherFlow) Init() {
 		p.Open()
 	}
 
-	//endOfFlowSeq := []byte{} // TODO
-	//otherFlows = flows.New(endOfFlowSeq)
+	endOfFlowSeq := []byte{}
+	otherFlows = NewFlows(endOfFlowSeq)
 
 	log.INFO.Println("Worker " + w.Name_ + " inited.")
 }
@@ -48,11 +48,29 @@ func (w OtherFlow) Run() {
 			} else if cmd == "STATUS" {
 				w.Ports()["MGMT_OtherFlow"].Channel() <- "Healthy"
 			} else if cmd == "METRICS" {
-				w.Ports()["MGMT_OtherFlow"].Channel() <- Metric{"metrics name": "TODO metrics."}
+				w.Ports()["MGMT_OtherFlow"].Channel() <- Metric{
+					"partialFlowSize": len(otherFlows.PartialFlows),
+					"finalFlowSize": len(otherFlows.FinalFlows),
+				}
 			}
 		case netflow := <-w.Ports()["Sniffer_and_OtherFlow"].Channel():
-			//otherFlows.Update([]byte{}, netflow.(Netflow))
-			log.INFO.Println(netflow.(Netflow))
+			srcPort := make([]byte, 2)
+			dstPort := make([]byte, 2)
+
+			binary.BigEndian.PutUint16(srcPort, netflow.(Netflow).SrcPort)
+			binary.BigEndian.PutUint16(dstPort, netflow.(Netflow).DstPort)
+
+			otherFlows.Update(
+				appendByteArray(
+					netflow.(Netflow).Optional, // Required to be the first byte
+					[]byte(netflow.(Netflow).SrcIp),
+					[]byte(netflow.(Netflow).DstIp),
+					srcPort,
+					dstPort,
+					[]byte{netflow.(Netflow).IpVersion},
+				),
+				netflow.(Netflow),
+			)
 		}
 	}
 }

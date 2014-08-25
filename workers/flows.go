@@ -51,8 +51,8 @@ func (f *Flows) Update(data []byte, netflow Netflow) {
 		f.PartialFlows[hash] = &FlowContainer {
 			Netflow_: netflow,
 			EndHash: adler32.Checksum(append(
-				data[1:],
-				f.EndSignature...,
+				f.EndSignature,
+				data[1:]...,
 			)),
 		}
 	} else { // Flow already started

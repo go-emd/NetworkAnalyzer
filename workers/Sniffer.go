@@ -93,8 +93,7 @@ func (w Sniffer) Run() {
 					netflow.Bytes = len(raw)
 
 					switch netflow.Protocol {
-					case 1: // ICMP v4
-					case 58: // ICMP v6
+					case 1, 58: // ICMP v4/6
 						netflow.Optional = []byte{
 							raw[14+20], // Type
 							raw[14+20+1], // Code (subtype)
