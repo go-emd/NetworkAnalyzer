@@ -58,7 +58,7 @@ func (f *Flows) Update(data []byte, netflow Netflow) {
 	} else { // Flow already started
 		f.PartialFlows[hash].Netflow_.Bytes += netflow.Bytes
 
-		if hash == f.PartialFlows[hash].EndHash { // End of flow
+		if adler32.Checksum(data) == f.PartialFlows[hash].EndHash { // End of flow
 			f.PartialFlows[hash].Netflow_.Duration = time.Now()
 			f.FinalFlows = append(f.FinalFlows, f.PartialFlows[hash].Netflow_)
 			f.PartialFlows[hash] = nil
